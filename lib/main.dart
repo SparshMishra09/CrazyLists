@@ -8,10 +8,16 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:lottie/lottie.dart';
 import 'package:confetti/confetti.dart';
 import 'dart:math';
+import 'package:to_do_list/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  
+  // Initialize notification service
+  final notificationService = NotificationService();
+  await notificationService.init();
+  
   runApp(const MyApp());
 }
 
@@ -49,6 +55,7 @@ class _AuthWrapperState extends State<AuthWrapper> with SingleTickerProviderStat
   late AnimationController _animationController;
   bool _isLoading = true;
   User? _user;
+  final NotificationService _notificationService = NotificationService();
 
   @override
   void initState() {
@@ -68,6 +75,9 @@ class _AuthWrapperState extends State<AuthWrapper> with SingleTickerProviderStat
         final userCredential = await FirebaseAuth.instance.signInAnonymously();
         _user = userCredential.user;
       }
+      
+      // Request notification permission
+      await _notificationService.requestPermission();
     } catch (e) {
       // Handle any errors
       debugPrint('Error signing in: $e');
@@ -135,6 +145,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final ConfettiController _confettiController = ConfettiController(duration: const Duration(seconds: 1));
+  final NotificationService _notificationService = NotificationService();
   
   String? _userId;
   bool _isAddingTask = false;
@@ -169,12 +180,17 @@ class _TodoListScreenState extends State<TodoListScreen> {
     });
 
     try {
-      await _firestore.collection('users').doc(_userId).collection('tasks').add({
+      // Add task to Firestore
+      DocumentReference docRef = await _firestore.collection('users').doc(_userId).collection('tasks').add({
         'title': title,
         'is_completed': false,
         'created_at': FieldValue.serverTimestamp(),
         'color': _taskColors[_random.nextInt(_taskColors.length)].value,
       });
+      
+      // Schedule notification for 5 hours later
+      await _notificationService.scheduleTaskReminder(docRef.id, title);
+      
       _taskController.clear();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -201,6 +217,16 @@ class _TodoListScreenState extends State<TodoListScreen> {
       // Play confetti animation when task is completed
       if (!currentStatus) {
         _confettiController.play();
+        // Cancel notification when task is completed
+        await _notificationService.cancelTaskReminder(taskId);
+      } else {
+        // Re-schedule notification if task is marked as incomplete
+        DocumentSnapshot taskDoc = await _firestore.collection('users').doc(_userId).collection('tasks').doc(taskId).get();
+        if (taskDoc.exists) {
+          final taskData = taskDoc.data() as Map<String, dynamic>;
+          final title = taskData['title'] as String;
+          await _notificationService.scheduleTaskReminder(taskId, title);
+        }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -215,6 +241,8 @@ class _TodoListScreenState extends State<TodoListScreen> {
 
     try {
       await _firestore.collection('users').doc(_userId).collection('tasks').doc(taskId).delete();
+      // Cancel notification when task is deleted
+      await _notificationService.cancelTaskReminder(taskId);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error deleting task: $e')),
@@ -488,9 +516,9 @@ class _TodoListScreenState extends State<TodoListScreen> {
                                             borderRadius: BorderRadius.circular(4),
                                           ),
                                           checkColor: Colors.white,
-                                          fillColor: MaterialStateProperty.resolveWith<Color>(
-                                            (Set<MaterialState> states) {
-                                              if (states.contains(MaterialState.selected)) {
+                                          fillColor: WidgetStateProperty.resolveWith<Color>(
+                                            (Set<WidgetState> states) {
+                                              if (states.contains(WidgetState.selected)) {
                                                 return Colors.green;
                                               }
                                               return Colors.white.withOpacity(0.3);
