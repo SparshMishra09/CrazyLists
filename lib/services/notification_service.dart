@@ -96,7 +96,7 @@ class NotificationService {
           channelDescription: 'Notifications for task reminders',
           importance: Importance.high,
           priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_notification',
         ),
         iOS: DarwinNotificationDetails(),
       ),
@@ -113,28 +113,5 @@ class NotificationService {
     debugPrint('Cancelled notification for task ID: $taskId');
   }
   
-  // Method to schedule a general reminder for incomplete tasks
-  Future<void> scheduleIncompleteTasksReminder() async {
-    // Schedule a notification 5 hours from now
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      0, // Use a fixed ID for the general reminder
-      'Your Tasks are Incomplete!!',
-      'You have incomplete tasks. Check your to-do list!',
-      tz.TZDateTime.now(tz.local).add(const Duration(hours: 5)),
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'task_reminders',
-          'Task Reminders',
-          channelDescription: 'Notifications for task reminders',
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
-        ),
-        iOS: DarwinNotificationDetails(),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-    );
-    
-    debugPrint('Scheduled general reminder for incomplete tasks in 5 hours');
-  }
+  
 }

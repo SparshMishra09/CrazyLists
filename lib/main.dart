@@ -165,8 +165,6 @@ class _TodoListScreenState extends State<TodoListScreen> {
   void initState() {
     super.initState();
     _userId = _auth.currentUser?.uid;
-    // Check for incomplete tasks and schedule notifications
-    _checkIncompleteTasksAndScheduleNotification();
   }
 
   @override
@@ -195,9 +193,6 @@ class _TodoListScreenState extends State<TodoListScreen> {
       
       // Schedule notification for 5 hours later
       await _notificationService.scheduleTaskReminder(docRef.id, title);
-      
-      // Check for incomplete tasks and update notifications
-      await _checkIncompleteTasksAndScheduleNotification();
       
       _taskController.clear();
     } catch (e) {
@@ -236,9 +231,6 @@ class _TodoListScreenState extends State<TodoListScreen> {
           await _notificationService.scheduleTaskReminder(taskId, title);
         }
       }
-      
-      // Check for incomplete tasks and update notifications
-      await _checkIncompleteTasksAndScheduleNotification();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error updating task: $e')),
@@ -254,41 +246,14 @@ class _TodoListScreenState extends State<TodoListScreen> {
       await _firestore.collection('users').doc(_userId).collection('tasks').doc(taskId).delete();
       // Cancel notification when task is deleted
       await _notificationService.cancelTaskReminder(taskId);
-      // Check if there are still incomplete tasks
-      _checkIncompleteTasksAndScheduleNotification();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error deleting task: $e')),
       );
     }
   }
+
   
-  // Check for incomplete tasks and schedule a notification if needed
-  Future<void> _checkIncompleteTasksAndScheduleNotification() async {
-    if (_userId == null) return;
-    
-    try {
-      // Query for incomplete tasks
-      final querySnapshot = await _firestore
-          .collection('users')
-          .doc(_userId)
-          .collection('tasks')
-          .where('is_completed', isEqualTo: false)
-          .get();
-      
-      // If there are incomplete tasks, schedule a general reminder
-      if (querySnapshot.docs.isNotEmpty) {
-        await _notificationService.scheduleIncompleteTasksReminder();
-        debugPrint('Found ${querySnapshot.docs.length} incomplete tasks, scheduled reminder');
-      } else {
-        // Cancel the general reminder if all tasks are complete
-        await _notificationService.cancelTaskReminder('0');
-        debugPrint('No incomplete tasks found, cancelled general reminder');
-      }
-    } catch (e) {
-      debugPrint('Error checking incomplete tasks: $e');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
