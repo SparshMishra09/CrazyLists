@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
 
@@ -60,26 +61,32 @@ class NotificationService {
   }
 
   Future<bool> requestPermission() async {
-    // Request permission for Android
+    // Request notification permission using permission_handler
+    PermissionStatus status = await Permission.notification.status;
+    
+    if (status.isDenied) {
+      // Request permission
+      status = await Permission.notification.request();
+    }
+    
+    // Also request permission through the plugin for compatibility
     final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
         flutterLocalNotificationsPlugin
             .resolvePlatformSpecificImplementation<
                 AndroidFlutterLocalNotificationsPlugin>();
 
-    // For Android 13+ (API level 33), we need to request permission
     if (androidImplementation != null) {
-      final bool? granted = await androidImplementation.requestNotificationsPermission();
-      return granted ?? false;
+      await androidImplementation.requestNotificationsPermission();
     }
     
-    return false;
+    return status.isGranted;
   }
 
   Future<void> scheduleTaskReminder(String taskId, String taskTitle) async {
     // Schedule a notification 5 hours from now
     await flutterLocalNotificationsPlugin.zonedSchedule(
       taskId.hashCode, // Notification ID based on task ID
-      'Task Reminder',
+      'Your Tasks are Incomplete!!',
       'Don\'t forget to complete: $taskTitle',
       tz.TZDateTime.now(tz.local).add(const Duration(hours: 5)),
       const NotificationDetails(
@@ -94,12 +101,40 @@ class NotificationService {
         iOS: DarwinNotificationDetails(),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time,
       payload: taskId,
     );
+    
+    // Log for debugging
+    debugPrint('Scheduled notification for task: $taskTitle (ID: $taskId) in 5 hours');
   }
 
   Future<void> cancelTaskReminder(String taskId) async {
     await flutterLocalNotificationsPlugin.cancel(taskId.hashCode);
+    debugPrint('Cancelled notification for task ID: $taskId');
+  }
+  
+  // Method to schedule a general reminder for incomplete tasks
+  Future<void> scheduleIncompleteTasksReminder() async {
+    // Schedule a notification 5 hours from now
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+      0, // Use a fixed ID for the general reminder
+      'Your Tasks are Incomplete!!',
+      'You have incomplete tasks. Check your to-do list!',
+      tz.TZDateTime.now(tz.local).add(const Duration(hours: 5)),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'task_reminders',
+          'Task Reminders',
+          channelDescription: 'Notifications for task reminders',
+          importance: Importance.high,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+    );
+    
+    debugPrint('Scheduled general reminder for incomplete tasks in 5 hours');
   }
 }
