@@ -87,7 +87,7 @@ class NotificationService {
     await flutterLocalNotificationsPlugin.zonedSchedule(
       taskId.hashCode, // Notification ID based on task ID
       'Your Tasks are Incomplete!!',
-      'Don\'t forget to complete: $taskTitle',
+      "Don't forget to complete: $taskTitle",
       tz.TZDateTime.now(tz.local).add(const Duration(hours: 5)),
       const NotificationDetails(
         android: AndroidNotificationDetails(
@@ -96,7 +96,8 @@ class NotificationService {
           channelDescription: 'Notifications for task reminders',
           importance: Importance.high,
           priority: Priority.high,
-          icon: 'ic_notification',
+          icon: 'ic_notification_left',
+          largeIcon: DrawableResourceAndroidBitmap('ic_notification_right'),
         ),
         iOS: DarwinNotificationDetails(),
       ),
