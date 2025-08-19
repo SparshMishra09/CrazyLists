@@ -96,7 +96,7 @@ class NotificationService {
           channelDescription: 'Notifications for task reminders',
           importance: Importance.high,
           priority: Priority.high,
-          icon: '@drawable/ic_notification',
+          icon: 'ic_notification',
         ),
         iOS: DarwinNotificationDetails(),
       ),
